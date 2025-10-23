@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
 import OpenAI from 'openai';
-import formidable from 'formidable';
+import formidable, { Fields, Files } from 'formidable';
 import fs from 'fs';
 
 export const config = {
@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const form = new formidable.IncomingForm();
 
-  form.parse(req, async (err, fields, files) => {
+  form.parse(req, async (err: Error | null, fields: Fields, files: Files) => {
     if (err || !files.arquivo) {
       return res.status(400).json({ erro: 'Arquivo não recebido.' });
     }
@@ -52,21 +52,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .join('\n\n');
 
       const promptFinal = `
-        Base de conhecimento:
-        ${texto}
+Base de conhecimento:
+${texto}
 
-        Instrução do usuário:
-        ${promptUsuario}
-        `;
+Instrução do usuário:
+${promptUsuario}
+`;
 
       const resposta = await openai.chat.completions.create({
         model: 'gpt-4',
         messages: [{ role: 'user', content: promptFinal }],
       });
 
-      const conteudoGerado = resposta.choices[0]?.message?.content || '[]';
-      // const questoes = JSON.parse(conteudoGerado);
-      // res.status(200).json({ questoes });
       const conteudo = resposta.choices[0]?.message?.content || '';
 
       try {
@@ -76,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error('Resposta da IA não é JSON válido:', conteudo);
         res.status(500).json({ erro: 'A IA retornou um conteúdo inválido. Verifique o prompt.' });
       }
-     
+
     } catch (erro) {
       console.error('Erro ao processar JSON:', erro);
       res.status(500).json({ erro: 'Erro ao gerar questões.' });
