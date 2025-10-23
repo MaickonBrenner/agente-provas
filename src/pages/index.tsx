@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { getSession } from 'next-auth/react';
 import UploadForm from '../components/UploadForm';
 import QuestaoCard from '../components/QuestaoCard';
+import { GetServerSidePropsContext } from 'next';
+
 
 type Questao = {
   pergunta: string;
@@ -46,7 +48,7 @@ export default function Home() {
 }
 
 // 🔐 Protege a página principal
-export async function getServerSideProps(context: any) {
+export async function getServerSideProps(context: GetServerSidePropsContext) {
   const session = await getSession(context);
   if (!session) {
     return {

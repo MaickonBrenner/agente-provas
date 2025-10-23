@@ -1,4 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from './auth/[...nextauth]';
 import OpenAI from 'openai';
 import formidable from 'formidable';
 import fs from 'fs';
@@ -14,6 +16,11 @@ const openai = new OpenAI({
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const session = await getServerSession(req, res, authOptions);
+  if (!session) {
+    return res.status(401).json({ erro: 'Não autorizado' });
+  }
+
   const form = new formidable.IncomingForm();
 
   form.parse(req, async (err, fields, files) => {
@@ -22,6 +29,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const arquivo = Array.isArray(files.arquivo) ? files.arquivo[0] : files.arquivo;
+    const promptUsuario = fields.prompt?.toString().trim();
+
+    if (!promptUsuario) {
+      return res.status(400).json({ erro: 'Prompt não fornecido.' });
+    }
 
     if (arquivo.mimetype !== 'application/json') {
       return res.status(400).json({ erro: 'Apenas arquivos JSON são aceitos.' });
@@ -36,27 +48,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const texto = json.topicos
-        .map((t: any) => `${t.titulo}: ${t.conteudo}`)
+        .map((t: { titulo: string; conteudo: string }) => `${t.titulo}: ${t.conteudo}`)
         .join('\n\n');
 
-      const prompt = `
-Com base no conteúdo abaixo, gere 5 questões de múltipla escolha em formato JSON.
-Cada questão deve conter:
-- pergunta (string)
-- alternativas (array de 4 opções)
-- respostaCorreta (índice da alternativa correta, começando em 0)
+      const promptFinal = `
+        Base de conhecimento:
+        ${texto}
 
-Conteúdo:
-${texto}
-`;
+        Instrução do usuário:
+        ${promptUsuario}
+        `;
 
       const resposta = await openai.chat.completions.create({
         model: 'gpt-4',
-        messages: [{ role: 'user', content: prompt }],
+        messages: [{ role: 'user', content: promptFinal }],
       });
 
-      const questoes = resposta.choices[0]?.message?.content || '[]';
-      res.status(200).json({ questoes });
+      const conteudoGerado = resposta.choices[0]?.message?.content || '[]';
+      // const questoes = JSON.parse(conteudoGerado);
+      // res.status(200).json({ questoes });
+      const conteudo = resposta.choices[0]?.message?.content || '';
+
+      try {
+        const questoes = JSON.parse(conteudo);
+        res.status(200).json({ questoes });
+      } catch (erro) {
+        console.error('Resposta da IA não é JSON válido:', conteudo);
+        res.status(500).json({ erro: 'A IA retornou um conteúdo inválido. Verifique o prompt.' });
+      }
+     
     } catch (erro) {
       console.error('Erro ao processar JSON:', erro);
       res.status(500).json({ erro: 'Erro ao gerar questões.' });

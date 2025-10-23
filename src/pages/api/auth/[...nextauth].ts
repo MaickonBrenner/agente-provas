@@ -1,7 +1,7 @@
-import NextAuth from 'next-auth';
+import NextAuth, { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
-export default NextAuth({
+export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: 'Login',
@@ -12,7 +12,7 @@ export default NextAuth({
       async authorize(credentials) {
         if (
           credentials?.username === 'admin' &&
-          credentials?.password === 'admin123'
+          credentials?.password === '123456'
         ) {
           return { id: '1', name: 'Admin' };
         }
@@ -26,4 +26,6 @@ export default NextAuth({
   session: {
     strategy: 'jwt',
   },
-});
+};
+
+export default NextAuth(authOptions);
