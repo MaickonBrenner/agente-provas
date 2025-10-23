@@ -23,7 +23,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const form = new formidable.IncomingForm();
 
-  form.parse(req, async (err: Error | null, fields: Fields, files: Files) => {
+  form.parse(req, async function (
+    err: Error | null,
+    fields: Fields,
+    files: Files
+  ): Promise<void> {
     if (err || !files.arquivo) {
       return res.status(400).json({ erro: 'Arquivo não recebido.' });
     }
